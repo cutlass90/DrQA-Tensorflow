@@ -243,11 +243,13 @@ class AnswerFinder(BaseModel):
     
     def _create_cost(self, logits_start, logits_end, target_start, target_end):
         print('_create_cost')
-        self.start_cost = tf.nn.softmax_cross_entropy_with_logits(labels=target_start,
-                                                             logits=logits_start)
-        self.end_cost = tf.nn.softmax_cross_entropy_with_logits(labels=target_end,
-                                                           logits=logits_end)
-        return tf.reduce_mean(self.start_cost) + tf.reduce_mean(self.end_cost)
+        self.start_cost = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(labels=target_start,
+                                                    logits=logits_start))
+        self.end_cost = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(labels=target_end,
+                                                    logits=logits_end))
+        return self.start_cost + self.end_cost
 
     def _create_metrics(self):
         print('_create_metrics')
