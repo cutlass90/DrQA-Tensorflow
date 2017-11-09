@@ -5,7 +5,7 @@ from dslib.tf_utils.config import (Config, IntegerParameter, RealParameter,
                                    Path, Scope, BooleanParameter,
                                    DictParameter, SequenceParameter)
 config = Config(
-    scope=Scope('answer_finder'),
+    scope=Scope('answer_finder_original_prepro'),
     experiments_dir=Path('./experiments'),
     path = Path(os.path.abspath(__file__)),
 
@@ -30,7 +30,7 @@ config = Config(
     learn_rate = RealParameter(0.001),
     iterations = IntegerParameter(20000),
     weight_decay = RealParameter(0.001),
-    save_interval = IntegerParameter(5000),
-    log_interval = IntegerParameter(50)
+    save_interval = IntegerParameter(1000),
+    log_interval = IntegerParameter(1)
 
 )

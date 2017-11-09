@@ -323,8 +323,8 @@ class AnswerFinder(BaseModel):
                                    self.config.iterations), ncols=75):
             self._train_step(train_loader)
             if (iteration + 1) % log_interval == 0:
-                self.save_summaries(train_loader, self.train_writer, iteration)
-                self.save_summaries(validation_loader, self.validation_writer,
+                self._save_summaries(train_loader, self.train_writer, iteration)
+                self._save_summaries(validation_loader, self.validation_writer,
                     iteration)
             if (iteration + 1) % save_interval == 0:
                 self.save_model()
