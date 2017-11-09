@@ -1,0 +1,7 @@
+.ipynb_checkpoints
+untracked/
+__pycache__
+.vscode
+heart_weights.h5
+summaries
+SQuAD*
