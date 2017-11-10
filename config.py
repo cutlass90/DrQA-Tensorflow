@@ -5,13 +5,13 @@ from dslib.tf_utils.config import (Config, IntegerParameter, RealParameter,
                                    Path, Scope, BooleanParameter,
                                    DictParameter, SequenceParameter)
 config = Config(
-    scope=Scope('answer_finder_original_prepro'),
+    scope=Scope('answer_finder_my_prepro'),
     experiments_dir=Path('./experiments'),
     path = Path(os.path.abspath(__file__)),
 
     path_to_vector_embeddings = Path('../datasets/glove/glove.840B.300d.txt'),
-    path_to_data = Path('./SQuAD1/data.msgpack'),
-    path_to_meta = Path('./SQuAD1/meta.msgpack'),
+    path_to_data = Path('./SQuAD2/data.msgpack'),
+    path_to_meta = Path('./SQuAD2/meta.msgpack'),
     path_to_train_json = Path('../datasets/SQuAD/train-v1.1.json'),
     path_to_val_json = Path('../datasets/SQuAD/dev-v1.1.json'),
     

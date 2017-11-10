@@ -10,10 +10,8 @@ from config import config as c
 reader = tools.reader
 with open(c.path_to_data, 'rb') as f:
     data = msgpack.load(f, encoding='utf8')
-    data = data['train']
-random.shuffle(data)
-edge = int(len(data)*0.8)
-train_set, val_set = data[:edge], data[edge:]
+
+train_set, val_set = data['train'], data['dev']
 
 with ParallelDataProvider(reader,
                           n_processes=8,
