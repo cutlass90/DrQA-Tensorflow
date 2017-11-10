@@ -20,13 +20,20 @@ nlp = None
 
 os.makedirs('./SQuAD', exist_ok=True)
 
-def str2bool(v):
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+parser = argparse.ArgumentParser(
+    description='Preprocessing data files, about 10 minitues to run.')
+
+parser.add_argument('--sort_all', action='store_true',
+                    help='sort the vocabulary by frequencies of all words. '
+                        'Otherwise consider question words first.')
+parser.add_argument('--sample_size', type=int, default=0,
+                    help='size of sample data (for debugging).')
+parser.add_argument('--threads', type=int, default=multiprocessing.cpu_count(),
+                    help='number of threads for preprocessing.')
+
+args = parser.parse_args()
+
 
 def flatten_json(data_file, mode):
     """Flatten each article in training data."""
@@ -74,9 +81,6 @@ def preprocess_context_question(context, question):
     total = len(context_tokens_lower)
     context_tf = [counter_[w] / total for w in context_tokens_lower]
     context_features = list(zip(match_origin, match_lower, match_lemma, context_tf))
-    if not args.wv_cased:
-        context_tokens = context_tokens_lower
-        question_tokens = question_tokens_lower
     return (context_tokens, context_features, context_tags, context_ents,
             question_tokens, context, context_token_span)
 
@@ -159,14 +163,15 @@ def get_wv_vocab(wv_file):
     log.info('glove vocab loaded.')
     return wv_vocab
 
-def annotate_multiproc(flattened):
+def annotate_multiproc(flattened, ignore_inconsistent_samples=False):
     workers = Pool(args.threads, initializer=init)
     train = workers.map(annotate, flattened)
     workers.close()
     workers.join()
     train = list(map(index_answer, train))
     initial_len = len(train)
-    train = list(filter(lambda x: x[-1] is not None, train))
+    if not ignore_inconsistent_samples:
+        train = list(filter(lambda x: x[-1] is not None, train))
     log.info('drop {} inconsistent samples.'.format(initial_len - len(train)))
     log.info('tokens generated')
     return train
@@ -175,9 +180,6 @@ def process_json(path_to_json, mode):
     flattened = flatten_json(path_to_json, mode)
     log.info('json data flattened.')
     return annotate_multiproc(flattened)
-
-
-
 
 def process_local_vocab(train, dev, wv_vocab):
     full = train + dev
@@ -244,7 +246,6 @@ def main(args):
     log.info(vars(args))
     log.info('start data preparing...')
 
-
     train_set = process_json(c.path_to_train_json, 'train')
     val_set = process_json(c.path_to_val_json, 'train')
 
@@ -264,19 +265,5 @@ def main(args):
     save_meta(vocab, vocab_tag, vocab_ent, embeddings, c.path_to_meta)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Preprocessing data files, about 10 minitues to run.')
 
-    parser.add_argument('--wv_cased', type=str2bool, nargs='?',
-                        const=True, default=True,
-                        help='treat the words as cased or not.')
-    parser.add_argument('--sort_all', action='store_true',
-                        help='sort the vocabulary by frequencies of all words. '
-                            'Otherwise consider question words first.')
-    parser.add_argument('--sample_size', type=int, default=0,
-                        help='size of sample data (for debugging).')
-    parser.add_argument('--threads', type=int, default=multiprocessing.cpu_count(),
-                        help='number of threads for preprocessing.')
-
-    args = parser.parse_args()
     main(args)

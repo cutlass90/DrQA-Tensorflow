@@ -31,6 +31,8 @@ config = Config(
     iterations = IntegerParameter(20000),
     weight_decay = RealParameter(0.001),
     save_interval = IntegerParameter(1000),
-    log_interval = IntegerParameter(1)
+    log_interval = IntegerParameter(1),
+
+    path_to_context = Path('./context.txt')
 
 )

@@ -330,6 +330,15 @@ class AnswerFinder(BaseModel):
                     iteration)
             if (iteration + 1) % save_interval == 0:
                 self.save_model()
+    
+    def predict(self, question, context, pos, ner, context_features):
+        feedDict = {
+            self.questions : question,
+            self.context : context,
+            self.pos : pos,
+            self.ner : ner,
+            self.context_features : context_features}
+        return self.sess.run([self.pred_start, self.pred_end], feed_dict=feedDict)
 
 def bilinear_sequnce_attention(seq, context):
     """ A bilinear attention layer over a sequence seq w.r.t context

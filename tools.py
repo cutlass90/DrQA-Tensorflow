@@ -1,7 +1,9 @@
 import random
 
 import numpy as np
+import msgpack
 
+from prepro import annotate_multiproc, to_id
 from config import config as c
 
 def fake_reader(x):
@@ -56,4 +58,59 @@ def reader(row):
                               [(0, c.context_size-len(context_features)),(0,0)], 
                               'constant', constant_values = -1)
     return [(questions, context, pos, ner, context_features, target_start, target_end)]
-     
+
+def make_inf_sample(context, question):
+    row = annotate_multiproc([(1, context, question, 'fake_answer', 42, 42)], True)[0]
+    with open(c.path_to_meta, 'rb') as f:
+        meta = msgpack.load(f, encoding='utf8')
+    w2id = {w:id_ for id_, w in enumerate(meta['vocab'])}
+    tag2id = {tag:id_ for id_, tag in enumerate(meta['vocab_tag'])}
+    ent2id = {ent:id_ for id_, ent in enumerate(meta['vocab_ent'])}
+    row = to_id(row, w2id, tag2id, ent2id)
+    row = list(row)
+    row[-1] = 42
+    row[-2] = 42
+    row = reader(row)[0]
+    row = [np.expand_dims(a, 0) for a in row]
+    return row
+
+def get_answer(context, question, model):
+    original_row = annotate_multiproc([(1, context, question, 'fake_answer', 42, 42)], True)[0]
+    context_text = original_row[-4]
+    words_edges = original_row[-3]
+    data = make_inf_sample(context, question)
+    question = data[0]
+    context = data[1]
+    pos = data[2]
+    ner = data[3]
+    context_features = data[4]
+    start_pos, end_pos = model.predict(question, context, pos, ner, context_features)
+    start_pos = int(start_pos)
+    end_pos = int(end_pos)
+    print('start_pos, end_pos', start_pos, end_pos)
+    return context_text[words_edges[start_pos][0]:words_edges[end_pos][1]]
+
+if __name__ == '__main__':
+    pass
+    # with open(c.path_to_context, 'r') as f:
+    #     context = f.read()
+    # question = 'What was his mother\'s name?'
+    # get_answer(context, question, model=1)
+
+    # with open(c.path_to_context, 'r') as f:
+    #     context = f.read()
+    # question = 'What was his mother\'s name?'
+    # batch = make_inf_sample(context, question)
+    # [print(i.shape) for i in batch ]
+
+
+
+    # import msgpack
+    # from dslib.generic.measurements import Timer
+    
+    # with open('SQuAD1/data.msgpack', 'rb') as f:
+    #     data = msgpack.load(f, encoding='utf8')
+    # data = data['train'][:1000]
+
+    # with Timer() as t:
+    #     [reader(row) for row in data]
