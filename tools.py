@@ -97,11 +97,11 @@ if __name__ == '__main__':
     # question = 'What was his mother\'s name?'
     # get_answer(context, question, model=1)
 
-    # with open(c.path_to_context, 'r') as f:
-    #     context = f.read()
-    # question = 'What was his mother\'s name?'
-    # batch = make_inf_sample(context, question)
-    # [print(i.shape) for i in batch ]
+    with open(c.path_to_context, 'r') as f:
+        context = f.read()
+    question = 'What was his mother\'s name?'
+    batch = make_inf_sample(context, question)
+    [print(i.shape) for i in batch ]
 
 
 

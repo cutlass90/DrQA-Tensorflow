@@ -81,6 +81,11 @@ def preprocess_context_question(context, question):
     total = len(context_tokens_lower)
     context_tf = [counter_[w] / total for w in context_tokens_lower]
     context_features = list(zip(match_origin, match_lower, match_lemma, context_tf))
+
+    print('context_token_span', context_token_span)
+    print(context[:30])
+    print(context[context_token_span[1][0]:context_token_span[1][1]])
+
     return (context_tokens, context_features, context_tags, context_ents,
             question_tokens, context, context_token_span)
 

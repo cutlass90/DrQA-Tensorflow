@@ -10,8 +10,9 @@ config = Config(
     path = Path(os.path.abspath(__file__)),
 
     path_to_vector_embeddings = Path('../datasets/glove/glove.840B.300d.txt'),
-    path_to_data = Path('./SQuAD2/data.msgpack'),
-    path_to_meta = Path('./SQuAD2/meta.msgpack'),
+    path_to_train_data = Path('./SQuAD/train.pkl'),
+    path_to_val_data = Path('./SQuAD/val.pkl'),
+    path_to_meta = Path('./SQuAD1/meta.msgpack'),
     path_to_train_json = Path('../datasets/SQuAD/train-v1.1.json'),
     path_to_val_json = Path('../datasets/SQuAD/dev-v1.1.json'),
     
