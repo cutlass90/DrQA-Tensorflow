@@ -28,11 +28,13 @@ config = Config(
     emb_size = IntegerParameter(300),
     dict_size = IntegerParameter(1000000),
     activation=StringParameter('tanh'),
+    threshold=RealParameter(0.5),
+    pos_weight=RealParameter(2.0),
 
     learn_rate = RealParameter(0.001),
     iterations = IntegerParameter(20000),
     weight_decay = RealParameter(0.001),
-    save_interval = IntegerParameter(1000),
+    save_interval = IntegerParameter(300),
     log_interval = IntegerParameter(1),
 
     path_to_context = Path('./context.txt'),

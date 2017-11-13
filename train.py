@@ -3,28 +3,26 @@ import random
 import msgpack
 from dslib.generic.data_providers import ParallelDataProvider
 
-import tools
+from tools import Reader, load_pickled_object, Paragraph, QA, Answer
 from answer_finder import AnswerFinder
 from config import config as c
 
-reader = tools.reader
-with open(c.path_to_data, 'rb') as f:
-    data = msgpack.load(f, encoding='utf8')
+reader = Reader(c)
+train_set = load_pickled_object(c.path_to_train_data)
+val_set = load_pickled_object(c.path_to_val_data)
 
-train_set, val_set = data['train'], data['dev']
-
-with ParallelDataProvider(reader,
-                          n_processes=8,
+with ParallelDataProvider(reader.read,
+                          n_processes=2,
                           files=train_set,
-                          capacity=4096,
+                          capacity=512,
                           batch_size=c.batch_size,
                           shuffle=False,
                           name="TrainLoader") as train_loader:
 
-    with ParallelDataProvider(reader,
-                              n_processes=4,
+    with ParallelDataProvider(reader.read,
+                              n_processes=2,
                               files=val_set,
-                              capacity=512,
+                              capacity=256,
                               batch_size=c.batch_size,
                               shuffle=False,
                               name="ValidationLoader") as validation_loader:

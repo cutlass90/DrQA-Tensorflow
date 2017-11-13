@@ -2,11 +2,14 @@ from pprint import pprint
 
 import tensorflow as tf
 import numpy as np
-import msgpack
+import pickle
 import tqdm
 
 from dslib.tf_utils.base_model import BaseModel
-from dslib.tf_utils import misc, tools, metrics
+from dslib.tf_utils import misc, metrics
+from dslib.tf_utils.tools import time_distributed
+
+from tools import load_pickled_object
 
 MAX_TO_KEEP = 100
 
@@ -46,8 +49,7 @@ class AnswerFinder(BaseModel):
 
             if mode is 'train':
                 self._register_config(self.config)
-                self.cost = self._create_cost(self.logits_start, self.logits_end,
-                                              self.target_start, self.target_end)
+                self.cost = self._create_cost(self.logits_answer, self.answer)
                 self._create_metrics()
                 self.merged = self._create_summaries()
                 self.train_op = self._create_optimizer(self.cost)
@@ -97,13 +99,9 @@ class AnswerFinder(BaseModel):
                                                    [None, self.config.context_size, 4],
                                                    'context_features')
             
-            self.target_start = tf.placeholder(tf.float32,
-                                               [None, self.config.context_size],
-                                               'target_start')
-
-            self.target_end = tf.placeholder(tf.float32,
-                                               [None, self.config.context_size],
-                                               'target_end')
+            self.answer = tf.placeholder(tf.float32,
+                                         [None, self.config.context_size],
+                                         'answer')
                         
             self.learn_rate = tf.placeholder(tf.float32, name="learn_rate")
 
@@ -132,36 +130,31 @@ class AnswerFinder(BaseModel):
 
         encoded_question = self.encode_question(q)
         
-        self.logits_start = bilinear_sequnce_attention(processed_featurs,
-                                                  encoded_question)
-
-        self.logits_end = bilinear_sequnce_attention(processed_featurs,
-                                                  encoded_question)
+        self.logits_answer = bilinear_sequnce_attention(processed_featurs,
+                                                        encoded_question)
         
-        self.pred_start = tf.argmax(self.logits_start, -1)
-        self.pred_end = tf.argmax(self.logits_end, -1)
+        self.answer_probability = tf.sigmoid(self.logits_answer)
 
         print('Done!')
 
     def load_word_embeddings(self):
         print('\tLoading word embeddings...')
-        with open(self.config.path_to_meta, 'rb') as f:
-            meta = msgpack.load(f, encoding='utf8')
-        embs = np.array(meta['embedding'])
+        meta = load_pickled_object(self.config.path_to_meta)
+        embs = meta['emb']
         W = tf.get_variable(name="w_embs", shape=embs.shape,
             initializer=tf.constant_initializer(embs), trainable=False)
         return W
 
     def load_pos_embeddings(self):
         print('\tLoading pos embeddings...')
-        embs = np.eye(self.config.pos_size+1)
+        embs = np.eye(len(self.config.vocab_tag))
         W = tf.get_variable(name="pos_embs", shape=embs.shape,
             initializer=tf.constant_initializer(embs), trainable=False)
         return W
 
     def load_ner_embeddings(self):
         print('\tLoading ner embeddings...')
-        embs = np.eye(self.config.ner_size+1)
+        embs = np.eye(len(self.config.vocab_ent))
         W = tf.get_variable(name="ner_embs", shape=embs.shape,
             initializer=tf.constant_initializer(embs), trainable=False)
         return W
@@ -207,7 +200,7 @@ class AnswerFinder(BaseModel):
             kernel_regularizer=self.regularizer, name='align_dense', reuse=True)
         q = tf.reshape(q, [-1, self.config.question_size, self.config.hidden_size])
         
-        return tools.time_distributed(process_pi, p)
+        return time_distributed(process_pi, p)
 
     def create_rnn_graph(self, x):
         print('\tcreate_rnn_graph')
@@ -241,29 +234,34 @@ class AnswerFinder(BaseModel):
         encoded_question = tf.reduce_sum(res*x, 1)
         return encoded_question
     
-    def _create_cost(self, logits_start, logits_end, target_start, target_end):
+    def _create_cost(self, logits_answer, answer):
         print('_create_cost')
-        self.start_cost = tf.reduce_mean(
-            tf.nn.softmax_cross_entropy_with_logits(labels=target_start,
-                                                    logits=logits_start))
-        self.end_cost = tf.reduce_mean(
-            tf.nn.softmax_cross_entropy_with_logits(labels=target_end,
-                                                    logits=logits_end))
-        return self.start_cost + self.end_cost
+        self.cost = tf.reduce_mean(
+            tf.nn.weighted_cross_entropy_with_logits(targets=answer,
+                                                    logits=logits_answer,
+                                                    pos_weight=self.config.pos_weight))
+        return self.cost
 
     def _create_metrics(self):
         print('_create_metrics')
-        self.start_acc = metrics.accuracy_multiclass(labels=self.target_start,
-                                                     logits=self.logits_start)
-        self.end_acc = metrics.accuracy_multiclass(labels=self.target_end,
-                                                   logits=self.logits_end)
+        self.acc = metrics.accuracy_multiclass(labels=self.answer,
+                                               logits=self.logits_answer)
+        precision, recall, f1 = metrics.pr_re_f1_multilabel(
+            labels=self.answer, logits=self.logits_answer,
+            threshold=self.config.threshold)
+        self.precision = tf.reduce_mean(precision)
+        self.recall = tf.reduce_mean(recall)
+        self.f1 = tf.reduce_mean(f1)
+
+
 
     def _create_summaries(self):
         print('_create_summaries')
-        tf.summary.scalar('start_cost', self.start_cost)
-        tf.summary.scalar('end_cost', self.end_cost)
-        tf.summary.scalar('start_acc', self.start_acc)
-        tf.summary.scalar('end_acc', self.end_acc)
+        tf.summary.scalar('accuracy', self.acc)
+        tf.summary.scalar('loss', self.cost)
+        tf.summary.scalar('precission', self.precision)
+        tf.summary.scalar('recall', self.recall)
+        tf.summary.scalar('f1', self.f1)
         return tf.summary.merge_all()
 
     def _create_optimizer(self, cost):
@@ -284,8 +282,7 @@ class AnswerFinder(BaseModel):
             self.pos : data[2],
             self.ner : data[3],
             self.context_features : data[4],
-            self.target_start : data[5],
-            self.target_end : data[6],
+            self.answer : data[5],
             self.weight_decay : self.config.weight_decay,
             self.learn_rate : self.config.learn_rate}
         self.sess.run(self.train_op, feed_dict=feedDict)
@@ -299,8 +296,7 @@ class AnswerFinder(BaseModel):
             self.pos : data[2],
             self.ner : data[3],
             self.context_features : data[4],
-            self.target_start : data[5],
-            self.target_end : data[6]}
+            self.answer : data[5]}
 
         summary = self.sess.run(self.merged, feed_dict=feedDict)
         writer.add_summary(summary, iteration)
