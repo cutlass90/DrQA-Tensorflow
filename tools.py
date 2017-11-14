@@ -7,13 +7,15 @@ import pickle
 import unicodedata
 from collections import defaultdict
 
+import matplotlib.pyplot as plt
 import csv
 import pandas as pd
 from tqdm import tqdm
 import spacy
+from spacy.lang.en import English
 import numpy as np
 
-from dslib.generic.measurements import Timer
+from dslib.generic.iterfuncs import slice_with_overlap
 
 class SingletonDecorator:
     def __init__(self, klass):
@@ -184,6 +186,8 @@ def tokens_to_id(tokens, vocab, pad_symbol):
     vocab = defaultdict(lambda: pad_symbol, vocab)
     return np.array([vocab[t] for t in tokens])
 
+################################################################################
+
 def get_meta(c):
     glove_vectors = pd.read_table(c.path_to_embeddings, sep=" ", index_col=0,
         header=None, quoting=csv.QUOTE_NONE)
@@ -290,35 +294,71 @@ def read(paragraph, w2id, tag2id, ent2id, c):
     return [(question, context, pos, ner, context_features, answer)]
 
 
-def make_inf_sample(context, question):
-    row = annotate_multiproc([(1, context, question, 'fake_answer', 42, 42)], True)[0]
-    with open(c.path_to_meta, 'rb') as f:
-        meta = msgpack.load(f, encoding='utf8')
-    w2id = {w:id_ for id_, w in enumerate(meta['vocab'])}
-    tag2id = {tag:id_ for id_, tag in enumerate(meta['vocab_tag'])}
-    ent2id = {ent:id_ for id_, ent in enumerate(meta['vocab_ent'])}
-    row = to_id(row, w2id, tag2id, ent2id)
-    row = list(row)
-    row[-1] = 42
-    row[-2] = 42
-    row = reader(row)[0]
-    row = [np.expand_dims(a, 0) for a in row]
-    return row
+def split_text(text, window_size, overlap):
+    """ Slices text of size `window_size` tokens from the text with
+        overlap given by `overlap`.
 
-def get_answer(context, question, model):
-    original_row = annotate_multiproc([(1, context, question, 'fake_answer', 42, 42)], True)[0]
-    context_text = original_row[-4]
-    words_edges = original_row[-3]
-    data = make_inf_sample(context, question)
-    question = data[0]
-    context = data[1]
-    pos = data[2]
-    ner = data[3]
-    context_features = data[4]
-    start_pos, end_pos = model.predict(question, context, pos, ner, context_features)
-    start_pos = int(start_pos)
-    end_pos = int(end_pos)
-    print('start_pos, end_pos', start_pos, end_pos)
+    Args:
+        context: str, text to split
+        window_size: int, number of the tokens in the single slice.
+        overlap: int, overlap between windows.
+    
+    Return:
+        list of string
+    """
+    nlp = spacy.load('en', parser=False)
+    tokenizer = English().Defaults.create_tokenizer(nlp)
+    text_tokenized = tokenizer(text)
+    gen = slice_with_overlap(text_tokenized, window_size, overlap, yield_last=True)
+    return [''.join([t.string for t in slice_]) for slice_ in gen]       
+
+def get_answer_from_probabilities(probs, paragraphs, context, c):
+    spans = []
+    for i, p in enumerate(paragraphs):
+        if i == 0:
+            offset = 0
+        else:
+            offset += paragraphs[i-1].context_token_span[-1][1] + 1
+        for st, en in p.context_token_span:
+            spans.append((st + offset, en + offset))
+
+    probs = probs.reshape([-1])
+    plt.plot(probs)
+    plt.savefig('probs.png')
+    probs = probs[:len(spans)]
+
+    inds = list(np.nonzero(np.diff((probs<c.inf_threshold).astype(int)) == -1)[0] + 1) +\
+           list(np.nonzero(np.diff((probs>c.inf_threshold).astype(int)) == -1)[0] + 1)
+    inds.sort()
+    probs = np.split(probs, inds)
+    spans = np.split(np.array(spans), inds)
+    answers = []
+    probabilities = []
+    for s, p in zip(spans, probs):
+        if p[0] > c.inf_threshold:
+            start = s[0, 0]
+            end = s[-1, 1]
+            answers.append(context[start:end])
+            probabilities.append(p.mean())
+    inds = np.argsort(np.array(probabilities))[::-1]
+    answers = [answers[i] for i in inds]
+    probabilities = [probabilities[i] for i in inds]
+    return answers, probabilities
+
+def get_answer(context, question, model, c):
+    """ Return answer for provided conteext and question for it. """
+    contexts = split_text(context, c.context_size, 0)
+    paragraphs = [Paragraph(c, [QA(question, [Answer('', 0)])]) for c in contexts]
+    reader = Reader(c)
+    batch = [reader.read(p)[0] for p in paragraphs]
+    question, context_, pos, ner, context_features, _ = [np.array(b) for b in zip(*batch)]
+    probs = model.predict(question, context_, pos, ner, context_features)
+    return get_answer_from_probabilities(probs, paragraphs, context, c)
+
+
+
+
+
     return context_text[words_edges[start_pos][0]:words_edges[end_pos][1]]
 
 if __name__ == '__main__':

@@ -334,7 +334,7 @@ class AnswerFinder(BaseModel):
             self.pos : pos,
             self.ner : ner,
             self.context_features : context_features}
-        return self.sess.run([self.pred_start, self.pred_end], feed_dict=feedDict)
+        return self.sess.run(self.answer_probability, feed_dict=feedDict)
 
 def bilinear_sequnce_attention(seq, context):
     """ A bilinear attention layer over a sequence seq w.r.t context

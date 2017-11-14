@@ -39,6 +39,8 @@ config = Config(
 
     path_to_context = Path('./context.txt'),
 
+    inf_threshold = RealParameter(0.5),
+
     vocab_tag = SequenceParameter(
         ['<PAD>', '""', '#', '$', ',', '-LRB-', '-PRB-', '-RRB-', '.', ':', 'ADD',
     'AFX', 'BES', 'CC', 'CD', 'DT', 'EX', 'FW', 'GW', 'HVS', 'HYPH', 'IN', 'JJ',
