@@ -312,33 +312,23 @@ def split_text(text, window_size, overlap):
     gen = slice_with_overlap(text_tokenized, window_size, overlap, yield_last=True)
     return [''.join([t.string for t in slice_]) for slice_ in gen]       
 
-def get_answer_from_probabilities(probs, paragraphs, context, c):
-    spans = []
-    for i, p in enumerate(paragraphs):
-        if i == 0:
-            offset = 0
-        else:
-            offset += paragraphs[i-1].context_token_span[-1][1] + 1
-        for st, en in p.context_token_span:
-            spans.append((st + offset, en + offset))
-
+def get_answer_from_probabilities(probs, paragraphs, c):
+    tokens = np.hstack([np.array(p.context_tokens) for p in paragraphs])
     probs = probs.reshape([-1])
     plt.plot(probs)
     plt.savefig('probs.png')
-    probs = probs[:len(spans)]
+    probs = probs[:len(tokens)]
 
     inds = list(np.nonzero(np.diff((probs<c.inf_threshold).astype(int)) == -1)[0] + 1) +\
            list(np.nonzero(np.diff((probs>c.inf_threshold).astype(int)) == -1)[0] + 1)
     inds.sort()
     probs = np.split(probs, inds)
-    spans = np.split(np.array(spans), inds)
+    tokens = np.split(np.array(tokens), inds)
     answers = []
     probabilities = []
-    for s, p in zip(spans, probs):
+    for t, p in zip(tokens, probs):
         if p[0] > c.inf_threshold:
-            start = s[0, 0]
-            end = s[-1, 1]
-            answers.append(context[start:end])
+            answers.append(' '.join(list(t)))
             probabilities.append(p.mean())
     inds = np.argsort(np.array(probabilities))[::-1]
     answers = [answers[i] for i in inds]
@@ -353,7 +343,7 @@ def get_answer(context, question, model, c):
     batch = [reader.read(p)[0] for p in paragraphs]
     question, context_, pos, ner, context_features, _ = [np.array(b) for b in zip(*batch)]
     probs = model.predict(question, context_, pos, ner, context_features)
-    return get_answer_from_probabilities(probs, paragraphs, context, c)
+    return get_answer_from_probabilities(probs, paragraphs, c)
 
 if __name__ == '__main__':
     from config import config as c
