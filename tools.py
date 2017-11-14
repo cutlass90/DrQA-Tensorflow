@@ -355,12 +355,6 @@ def get_answer(context, question, model, c):
     probs = model.predict(question, context_, pos, ner, context_features)
     return get_answer_from_probabilities(probs, paragraphs, context, c)
 
-
-
-
-
-    return context_text[words_edges[start_pos][0]:words_edges[end_pos][1]]
-
 if __name__ == '__main__':
     from config import config as c
     # read_set(c.path_to_train_json, c.path_to_train_data)
