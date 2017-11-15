@@ -4,7 +4,8 @@ import msgpack
 from dslib.generic.data_providers import ParallelDataProvider
 
 from tools import Reader, load_pickled_object, Paragraph, QA, Answer
-from answer_finder import AnswerFinder
+# from answer_finder import AnswerFinder
+from answer_finder_softmax import AnswerFinder
 from config import config as c
 
 reader = Reader(c)

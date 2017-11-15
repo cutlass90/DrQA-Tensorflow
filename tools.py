@@ -275,6 +275,8 @@ def read(paragraph, w2id, tag2id, ent2id, c):
     pos = np.zeros([c.context_size], dtype=int)
     ner = np.zeros([c.context_size], dtype=int)
     context_features = -1*np.ones([c.context_size, 4], dtype=float)
+    answer_start = np.zeros([c.context_size])
+    answer_end = np.zeros([c.context_size])
 
     # fill blank
     question, _ = filler(question_id, question, c.question_size)
@@ -286,12 +288,24 @@ def read(paragraph, w2id, tag2id, ent2id, c):
     if s is None:
         answer = np.zeros([c.context_size], dtype=float)
         answer[a_s:a_e] = 1
+
+        answer_start[a_s] = 1
+        answer_end[a_e - 1] = 1
     else:
         answer = np.zeros([len(context_id)])
         answer[a_s:a_e] = 1
         answer = answer[s:s+c.context_size]
+
+        answer_start = np.zeros([len(context_id)])
+        answer_start[a_s] = 1
+        answer_start = answer_start[s:s+c.context_size]
+
+        answer_end = np.zeros([len(context_id)])
+        answer_end[a_e - 1] = 1
+        answer_end = answer_end[s:s+c.context_size]
     
-    return [(question, context, pos, ner, context_features, answer)]
+    return [(question, context, pos, ner, context_features, answer,
+             answer_start, answer_end)]
 
 
 def split_text(text, window_size, overlap):
