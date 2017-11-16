@@ -183,8 +183,8 @@ def process_question(question, nlp):
     return question_tokens
 
 def tokens_to_id(tokens, vocab, pad_symbol):
-    vocab = defaultdict(lambda: pad_symbol, vocab)
-    return np.array([vocab[t] for t in tokens])
+    # vocab = defaultdict(lambda: pad_symbol, vocab)
+    return np.array([vocab.get(t, pad_symbol) for t in tokens])
 
 ################################################################################
 
@@ -270,11 +270,11 @@ def read(paragraph, w2id, tag2id, ent2id, c):
     ner_id = tokens_to_id(paragraph.context_ents, ent2id, 0)
     
     # create blank
-    question = np.zeros([c.question_size], dtype=int)
-    context = np.zeros([c.context_size], dtype=int)
-    pos = np.zeros([c.context_size], dtype=int)
-    ner = np.zeros([c.context_size], dtype=int)
-    context_features = -1*np.ones([c.context_size, 4], dtype=float)
+    question = np.zeros([c.question_size], dtype=np.int32)
+    context = np.zeros([c.context_size], dtype=np.int32)
+    pos = np.zeros([c.context_size], dtype=np.int32)
+    ner = np.zeros([c.context_size], dtype=np.int32)
+    context_features = -1*np.ones([c.context_size, 4], dtype=np.float32)
     answer_start = np.zeros([c.context_size])
     answer_end = np.zeros([c.context_size])
 
@@ -331,6 +331,7 @@ def get_answer_from_probabilities(probs, paragraphs, c):
     probs = probs.reshape([-1])
     plt.plot(probs)
     plt.savefig('probs.png')
+    plt.close()
     probs = probs[:len(tokens)]
 
     inds = list(np.nonzero(np.diff((probs<c.inf_threshold).astype(int)) == -1)[0] + 1) +\
@@ -355,7 +356,7 @@ def get_answer(context, question, model, c):
     paragraphs = [Paragraph(c, [QA(question, [Answer('', 0)])]) for c in contexts]
     reader = Reader(c)
     batch = [reader.read(p)[0] for p in paragraphs]
-    question, context_, pos, ner, context_features, _ = [np.array(b) for b in zip(*batch)]
+    question, context_, pos, ner, context_features, *_ = [np.array(b) for b in zip(*batch)]
     probs = model.predict(question, context_, pos, ner, context_features)
     return get_answer_from_probabilities(probs, paragraphs, c)
 

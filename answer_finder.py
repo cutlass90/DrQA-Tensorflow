@@ -244,8 +244,9 @@ class AnswerFinder(BaseModel):
 
     def _create_metrics(self):
         print('_create_metrics')
-        self.acc = metrics.accuracy_multiclass(labels=self.answer,
-                                               logits=self.logits_answer)
+        self.acc = metrics.accuracy_multilabel(labels=self.answer,
+                                               logits=self.logits_answer,
+                                               threshold=self.config.threshold)
         precision, recall, f1 = metrics.pr_re_f1_multilabel(
             labels=self.answer, logits=self.logits_answer,
             threshold=self.config.threshold)

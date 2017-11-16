@@ -8,7 +8,7 @@ from dslib.tf_utils.config import (Config, IntegerParameter, RealParameter,
 # in in word vectors UNK id is 1, and vector is np.ones
 
 config = Config(
-    scope=Scope('back_to_softmax'),
+    scope=Scope('answer_finder'),
     experiments_dir=Path('./experiments'),
     path = Path(os.path.abspath(__file__)),
 
@@ -20,26 +20,25 @@ config = Config(
     path_to_meta = Path('./SQuAD/meta.pkl'),
     
     question_size = IntegerParameter(30),
-    context_size = IntegerParameter(400),
-    batch_size = IntegerParameter(64),
+    context_size = IntegerParameter(200),
+    batch_size = IntegerParameter(64, descriptive=False),
 
     hidden_size = IntegerParameter(256),
     n_rnn_layers = IntegerParameter(3),
-    emb_size = IntegerParameter(300),
+    emb_size = IntegerParameter(300, descriptive=False),
     dict_size = IntegerParameter(1000000),
-    activation=StringParameter('tanh'),
-    threshold=RealParameter(0.5),
+    threshold=RealParameter(0.5, descriptive=False),
     pos_weight=RealParameter(2.0),
 
-    learn_rate = RealParameter(0.001),
-    iterations = IntegerParameter(20000),
-    weight_decay = RealParameter(0.001),
-    save_interval = IntegerParameter(300),
-    log_interval = IntegerParameter(1),
+    learn_rate = RealParameter(0.001, descriptive=False),
+    iterations = IntegerParameter(5000, descriptive=False),
+    weight_decay = RealParameter(0.001, descriptive=False),
+    save_interval = IntegerParameter(300, descriptive=False),
+    log_interval = IntegerParameter(1, descriptive=False),
 
     path_to_context = Path('./context.txt'),
 
-    inf_threshold = RealParameter(0.5),
+    inf_threshold = RealParameter(0.5, descriptive=False),
 
     vocab_tag = SequenceParameter(
         ['<PAD>', '""', '#', '$', ',', '-LRB-', '-PRB-', '-RRB-', '.', ':', 'ADD',
