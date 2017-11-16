@@ -8,7 +8,7 @@ from dslib.tf_utils.config import (Config, IntegerParameter, RealParameter,
 # in in word vectors UNK id is 1, and vector is np.ones
 
 config = Config(
-    scope=Scope('answer_finder_rewrite_attentions'),
+    scope=Scope('answer_finder_clip'),
     experiments_dir=Path('./experiments'),
     path = Path(os.path.abspath(__file__)),
 
@@ -21,7 +21,7 @@ config = Config(
     
     question_size = IntegerParameter(30),
     context_size = IntegerParameter(300),
-    batch_size = IntegerParameter(64, descriptive=False),
+    batch_size = IntegerParameter(128, descriptive=False),
 
     hidden_size = IntegerParameter(256),
     n_rnn_layers = IntegerParameter(3),
@@ -29,6 +29,7 @@ config = Config(
     dict_size = IntegerParameter(1000000),
     threshold=RealParameter(0.5, descriptive=False),
     pos_weight=RealParameter(2.0),
+    keep_prob=RealParameter(0.5),
 
     learn_rate = RealParameter(0.001, descriptive=False),
     iterations = IntegerParameter(5000, descriptive=False),

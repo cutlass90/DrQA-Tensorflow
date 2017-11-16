@@ -106,6 +106,8 @@ class AnswerFinder(BaseModel):
             self.learn_rate = tf.placeholder(tf.float32, name="learn_rate")
 
             self.weight_decay = tf.placeholder(tf.float32, name='weight_decay')
+
+            self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     
     def _create_graph(self):
         print('Creat graph')
@@ -117,12 +119,16 @@ class AnswerFinder(BaseModel):
         self.regularizer = tf.contrib.layers.l2_regularizer(scale=self.weight_decay)
 
         p = tf.nn.embedding_lookup(self.w_embs, self.context)
+        p = tf.nn.dropout(p, keep_prob=self.keep_prob)
         q = tf.nn.embedding_lookup(self.w_embs, self.questions)
+        q = tf.nn.dropout(q, keep_prob=self.keep_prob)
         
         aligned_emb = self.align_question_embedding(p, q)
 
         pos = tf.nn.embedding_lookup(self.pos_embs, self.pos)
+        pos = tf.nn.dropout(pos, keep_prob=self.keep_prob)
         ner = tf.nn.embedding_lookup(self.ner_embs, self.ner)
+        ner = tf.nn.dropout(ner, keep_prob=self.keep_prob)
 
         all_context_features = tf.concat([p, aligned_emb, pos, ner], -1)
 
@@ -241,7 +247,7 @@ class AnswerFinder(BaseModel):
         with tf.variable_scope('optimizer'):
             optimizer = tf.train.AdamOptimizer(self.learn_rate)
             grad_var = optimizer.compute_gradients(cost)
-            # grad_var = [(tf.clip_by_value(g, -1, 1), v) for g,v in grad_var]
+            grad_var = [(tf.clip_by_value(g, -1, 1), v) for g,v in grad_var]
             train = optimizer.apply_gradients(grad_var)
         return train
     
@@ -256,7 +262,8 @@ class AnswerFinder(BaseModel):
             self.context_features : data[4],
             self.answer : data[5],
             self.weight_decay : self.config.weight_decay,
-            self.learn_rate : self.config.learn_rate}
+            self.learn_rate : self.config.learn_rate,
+            self.keep_prob : self.config.keep_prob}
         self.sess.run(self.train_op, feed_dict=feedDict)
 
     def _save_summaries(self, loader, writer, iteration):
@@ -268,7 +275,8 @@ class AnswerFinder(BaseModel):
             self.pos : data[2],
             self.ner : data[3],
             self.context_features : data[4],
-            self.answer : data[5]}
+            self.answer : data[5],
+            self.keep_prob : self.config.keep_prob}
 
         summary = self.sess.run(self.merged, feed_dict=feedDict)
         writer.add_summary(summary, iteration)
@@ -305,7 +313,8 @@ class AnswerFinder(BaseModel):
             self.context : context,
             self.pos : pos,
             self.ner : ner,
-            self.context_features : context_features}
+            self.context_features : context_features,
+            self.keep_prob : 1}
         return self.sess.run(self.answer_probability, feed_dict=feedDict)
 
 def bilinear_sequnce_attention(seq, context):
