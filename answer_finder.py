@@ -163,75 +163,46 @@ class AnswerFinder(BaseModel):
         """ Compute Aligned question embedding.
         
         Args:
-            q: question tensor, shape batch_size x question_size x emb_size
             p: context tensor, shape batch_size x context_size x emb_size
+            q: question tensor, shape batch_size x question_size x emb_size
         
         Return:
             tensor of shape batch_size x context_size x hidden_size
         """
-        def process_pi(x):
-            """ Return pi tensor as weighted sum of question tensors. 
-            
-            Args:
-                x: tensor of shape b x hidden_size
-
-            Return:
-                tensor of shape b x hidden_size
-            """
-
-            x = tf.reshape(x, (-1, 1, self.config.hidden_size))
-            x = tf.reduce_sum(x*q, axis=2) # b x question_size
-            x = tf.nn.softmax(x)
-            x = tf.reduce_sum(tf.reshape(
-                x, (-1, self.config.question_size, 1)) * q, axis=1)            
-            return x
-        print('\talign_question_embedding')
-        p = tf.reshape(p, [-1, self.config.emb_size])
-        p = tf.layers.dense(p, self.config.hidden_size, activation=tf.nn.relu,
-            kernel_initializer=tf.contrib.layers.xavier_initializer(),
-            kernel_regularizer=self.regularizer, name='align_dense', reuse=False)
-        p = tf.reshape(p, [-1, self.config.context_size, self.config.hidden_size])
-        
-        
-        
-        q = tf.reshape(q, [-1, self.config.emb_size])        
-        q = tf.layers.dense(q, self.config.hidden_size, activation=tf.nn.relu,
-            kernel_initializer=tf.contrib.layers.xavier_initializer(),
-            kernel_regularizer=self.regularizer, name='align_dense', reuse=True)
-        q = tf.reshape(q, [-1, self.config.question_size, self.config.hidden_size])
-        
-        return time_distributed(process_pi, p)
+        return SeqAttnMatch(p, q)
 
     def create_rnn_graph(self, x):
         print('\tcreate_rnn_graph')
+        outs = []
+        for i in range(self.config.n_rnn_layers):
+            f_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
+            b_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
+            res = tf.nn.bidirectional_dynamic_rnn(f_cell, b_cell, x,
+                dtype=tf.float32, scope='context_rnn{}'.format(i))
+            x = tf.concat(res[0], axis=-1)
+            outs.append(x)
 
-        f_cell = [tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
-            for _ in range(self.config.n_rnn_layers)]
-        multi_f_cell = tf.nn.rnn_cell.MultiRNNCell(f_cell)
-        b_cell = [tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
-            for _ in range(self.config.n_rnn_layers)]
-        multi_b_cell = tf.nn.rnn_cell.MultiRNNCell(b_cell)
-
-        res = tf.nn.bidirectional_dynamic_rnn(multi_f_cell, multi_b_cell, x,
-            dtype=tf.float32)
-        res = tf.concat(res[0], axis=-1)
+        res = tf.concat(outs, axis=-1)
         return res
 
     def encode_question(self, q):
         print('\tencode_question')
-        f_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
-        b_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
-        res = tf.nn.bidirectional_dynamic_rnn(f_cell, b_cell, q, dtype=tf.float32)
-        res = tf.concat(res[0], -1)
+        outs = []
+        for i in range(self.config.n_rnn_layers):
+            f_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
+            b_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
+            res = tf.nn.bidirectional_dynamic_rnn(f_cell, b_cell, q,
+                dtype=tf.float32, scope='question_rnn{}'.format(i))
+            q = tf.concat(res[0], axis=-1)
+            outs.append(q)
 
-        x = tf.reshape(res, [-1, 2*self.config.hidden_size])        
-        x = tf.layers.dense(x, 1, activation=tf.nn.relu,
-            kernel_initializer=tf.contrib.layers.xavier_initializer(),
-            kernel_regularizer=self.regularizer, name='encode_q_dense')
-        x = tf.reshape(x, [-1, self.config.question_size])
-        x = tf.nn.softmax(x)
-        x = tf.reshape(x, [-1, self.config.question_size, 1])
-        encoded_question = tf.reduce_sum(res*x, 1)
+        res = tf.concat(outs, axis=-1)
+
+        weights = LinearSeqAttn(res)
+        weights = tf.reshape(weights, [-1, 1, self.config.question_size])
+        encoded_question =  tf.einsum('ijk,ikq->ijq', weights, res) # b x 1 x 6*hidden_size
+        encoded_question = tf.reshape(encoded_question,
+            [-1, 2*self.config.n_rnn_layers*self.config.hidden_size])
         return encoded_question
     
     def _create_cost(self, logits_answer, answer):
@@ -359,3 +330,48 @@ def bilinear_sequnce_attention(seq, context):
 if __name__ == '__main__':
     from config import config as c
     AnswerFinder(c, 'train')
+
+
+def SeqAttnMatch(x, y):
+    """Given sequences x and y, match sequence y to each element in x.
+
+    Args:
+        x: tensor of shape batch x len1 x h
+        y: tensor of shape batch x len2 x h
+    Return:
+        matched_seq = batch * len1 * h
+    """
+    len1, h = x.get_shape().as_list()[1:]
+    len2 = y.get_shape().as_list()[1]
+
+    x_proj = tf.layers.dense(tf.reshape(x, [-1, h]), h, activation=tf.nn.relu,
+        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+        name='proj_dense', reuse=False)
+    y_proj = tf.layers.dense(tf.reshape(y, [-1, h]), h, activation=tf.nn.relu,
+        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+        name='proj_dense', reuse=True)
+        
+    x_proj = tf.reshape(x_proj, [-1, len1, h])
+    y_proj = tf.reshape(y_proj, [-1, len2, h])
+    scores = tf.einsum('ijk,ikq->ijq', x_proj, tf.transpose(y_proj, [0, 2, 1])) # b x len1 x len2
+    alpha_flat = tf.nn.softmax(tf.reshape(scores, [-1, len2]))
+    alpha = tf.reshape(alpha_flat, [-1, len1, len2])
+    matched_seq = tf.einsum('ijk,ikq->ijq', alpha, y)
+    return matched_seq
+
+def LinearSeqAttn(x):
+    """Self attention over a sequence.
+
+    Args:
+        x: tensor of shape batch x len x hdim
+
+    Return:
+        tensor of shape batch x len
+    """
+    len_, hdim = x.get_shape().as_list()[1:]
+
+    x_flat = tf.reshape(x, [-1, hdim])
+    scores = tf.layers.dense(x, 1,
+        kernel_initializer=tf.contrib.layers.xavier_initializer())
+    scores = tf.reshape(scores, [-1, len_])
+    return tf.nn.softmax(scores)

@@ -8,7 +8,7 @@ from dslib.tf_utils.config import (Config, IntegerParameter, RealParameter,
 # in in word vectors UNK id is 1, and vector is np.ones
 
 config = Config(
-    scope=Scope('answer_finder'),
+    scope=Scope('answer_finder_rewrite_attentions'),
     experiments_dir=Path('./experiments'),
     path = Path(os.path.abspath(__file__)),
 
@@ -20,7 +20,7 @@ config = Config(
     path_to_meta = Path('./SQuAD/meta.pkl'),
     
     question_size = IntegerParameter(30),
-    context_size = IntegerParameter(200),
+    context_size = IntegerParameter(300),
     batch_size = IntegerParameter(64, descriptive=False),
 
     hidden_size = IntegerParameter(256),
