@@ -8,7 +8,7 @@ from dslib.tf_utils.config import (Config, IntegerParameter, RealParameter,
 # in in word vectors UNK id is 1, and vector is np.ones
 
 config = Config(
-    scope=Scope('answer_finder_clip'),
+    scope=Scope('answer_finder_lens'),
     experiments_dir=Path('./experiments'),
     path = Path(os.path.abspath(__file__)),
 

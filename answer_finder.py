@@ -83,6 +83,14 @@ class AnswerFinder(BaseModel):
                                             [None, self.config.question_size],
                                             'questions')
             
+            self.question_lens = tf.placeholder(tf.int32,
+                                                [None],
+                                                name="question_lens")
+
+            self.context_lens = tf.placeholder(tf.int32,
+                                                [None],
+                                                name="context_lens")
+            
             self.context = tf.placeholder(tf.int32,
                                           [None, self.config.context_size],
                                           'context')
@@ -184,7 +192,8 @@ class AnswerFinder(BaseModel):
             f_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             b_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             res = tf.nn.bidirectional_dynamic_rnn(f_cell, b_cell, x,
-                dtype=tf.float32, scope='context_rnn{}'.format(i))
+                dtype=tf.float32, sequence_length=self.context_lens,
+                scope='context_rnn{}'.format(i))
             x = tf.concat(res[0], axis=-1)
             outs.append(x)
 
@@ -198,7 +207,8 @@ class AnswerFinder(BaseModel):
             f_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             b_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             res = tf.nn.bidirectional_dynamic_rnn(f_cell, b_cell, q,
-                dtype=tf.float32, scope='question_rnn{}'.format(i))
+                dtype=tf.float32, sequence_length=self.question_lens,
+                scope='question_rnn{}'.format(i))
             q = tf.concat(res[0], axis=-1)
             outs.append(q)
 
@@ -261,6 +271,8 @@ class AnswerFinder(BaseModel):
             self.ner : data[3],
             self.context_features : data[4],
             self.answer : data[5],
+            self.context_lens : data[8],
+            self.question_lens : data[9],
             self.weight_decay : self.config.weight_decay,
             self.learn_rate : self.config.learn_rate,
             self.keep_prob : self.config.keep_prob}
@@ -276,6 +288,8 @@ class AnswerFinder(BaseModel):
             self.ner : data[3],
             self.context_features : data[4],
             self.answer : data[5],
+            self.context_lens : data[8],
+            self.question_lens : data[9],
             self.keep_prob : self.config.keep_prob}
 
         summary = self.sess.run(self.merged, feed_dict=feedDict)
@@ -314,6 +328,8 @@ class AnswerFinder(BaseModel):
             self.pos : pos,
             self.ner : ner,
             self.context_features : context_features,
+            # self.context_lens : data[8],
+            # self.question_lens : data[9],
             self.keep_prob : 1}
         return self.sess.run(self.answer_probability, feed_dict=feedDict)
 
