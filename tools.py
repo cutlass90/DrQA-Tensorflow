@@ -256,8 +256,7 @@ def read(paragraph, w2id, tag2id, ent2id, c):
                 s = random.randint(0, size - max_size)
             container[:] = data[s:s + max_size]
         return container, s
-    # import pdb
-    # pdb.set_trace()
+
     #get data
     qa = paragraph.get_qa()
     answer = qa.get_answer()

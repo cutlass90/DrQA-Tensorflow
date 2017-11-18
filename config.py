@@ -29,7 +29,7 @@ config = Config(
     dict_size = IntegerParameter(1000000),
     threshold=RealParameter(0.5, descriptive=False),
     pos_weight=RealParameter(2.0),
-    keep_prob=RealParameter(0.5),
+    keep_prob=RealParameter(0.8),
 
     learn_rate = RealParameter(0.001, descriptive=False),
     iterations = IntegerParameter(5000, descriptive=False),

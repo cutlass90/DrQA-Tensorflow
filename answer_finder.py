@@ -55,7 +55,7 @@ class AnswerFinder(BaseModel):
                 self.train_op = self._create_optimizer(self.cost)
                 self.optimizer_vars = misc.get_vars_by_scope("optimizer")
                 self.all_vars = self.model_vars + self.optimizer_vars
-                self._create_summary_writers(self.config.summary_dir)
+                self._create_summary_writers(self.config.summary_dir, False)
 
             self.saver = tf.train.Saver(max_to_keep=MAX_TO_KEEP,
                                         var_list=self.all_vars)
@@ -290,7 +290,7 @@ class AnswerFinder(BaseModel):
             self.answer : data[5],
             self.context_lens : data[8],
             self.question_lens : data[9],
-            self.keep_prob : self.config.keep_prob}
+            self.keep_prob : 1}
 
         summary = self.sess.run(self.merged, feed_dict=feedDict)
         writer.add_summary(summary, iteration)
