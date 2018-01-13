@@ -303,8 +303,8 @@ def read(paragraph, w2id, tag2id, ent2id, c):
         answer_end[a_e - 1] = 1
         answer_end = answer_end[s:s+c.context_size]
     
-    context_lens = len(context_id)
-    question_lens = len(question_id)
+    context_lens = len(context_id) if len(context_id) <= c.context_size else c.context_size
+    question_lens = len(question_id) if len(question_id) <= c.question_size else c.question_size
     
     return [(question, context, pos, ner, context_features, answer,
              answer_start, answer_end, context_lens, question_lens)]

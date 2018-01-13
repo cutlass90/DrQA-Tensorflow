@@ -35,7 +35,7 @@ class AnswerFinder(BaseModel):
             print("*" * 80)
             print("\nCreating {}\n".format(self.config.identifier))
             print("Config:\n")
-            pprint(c.parameters)
+            pprint(config.parameters)
 
         self.graph = tf.Graph()
         with self.graph.as_default():
@@ -192,7 +192,8 @@ class AnswerFinder(BaseModel):
             f_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             b_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             res = tf.nn.bidirectional_dynamic_rnn(f_cell, b_cell, x,
-                dtype=tf.float32, sequence_length=self.context_lens,
+                dtype=tf.float32,
+                sequence_length=self.context_lens,
                 scope='context_rnn{}'.format(i))
             x = tf.concat(res[0], axis=-1)
             outs.append(x)
@@ -207,7 +208,8 @@ class AnswerFinder(BaseModel):
             f_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             b_cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size)
             res = tf.nn.bidirectional_dynamic_rnn(f_cell, b_cell, q,
-                dtype=tf.float32, sequence_length=self.question_lens,
+                dtype=tf.float32,
+                sequence_length=self.question_lens,
                 scope='question_rnn{}'.format(i))
             q = tf.concat(res[0], axis=-1)
             outs.append(q)
@@ -257,7 +259,7 @@ class AnswerFinder(BaseModel):
         with tf.variable_scope('optimizer'):
             optimizer = tf.train.AdamOptimizer(self.learn_rate)
             grad_var = optimizer.compute_gradients(cost)
-            grad_var = [(tf.clip_by_value(g, -1, 1), v) for g,v in grad_var]
+            grad_var = [(tf.clip_by_value(g, -0.3, 0.3), v) for g,v in grad_var]
             train = optimizer.apply_gradients(grad_var)
         return train
     
